@@ -1,0 +1,9 @@
+.workspace_trab_comp.code-workspace
+.vscode
+*.pdf
+teste.py
+/compilador.__pycache__/
+__pycache__/
+/automatos
+*.txt
+*.rar
