@@ -1,5 +1,6 @@
 .workspace_trab_comp.code-workspace
 .vscode
+.idea/
 *.pdf
 teste.py
 /compilador.__pycache__/
