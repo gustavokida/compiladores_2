@@ -14,6 +14,7 @@ class Interpretador:
             raise RuntimeError("Could not open file") from error
 
     def interpreter(self):
+        self.i = 0
         while True:
             code = self.C[self.i].split()
             op = code[1]
