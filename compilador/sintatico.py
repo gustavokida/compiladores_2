@@ -56,6 +56,7 @@ class Sintatico:
         self.programa()
         if(self.simbolo is None):
             print("OK")
+            self.compile()
         else:
             raise RuntimeError(f"Erro sintático esperado no fim de cadeia encontrado: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
 
