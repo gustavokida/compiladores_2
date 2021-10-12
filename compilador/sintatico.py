@@ -24,7 +24,7 @@ class Sintatico:
         return simbolo.Simbolo("t" + str(temporario), tipo)
 
     def code(self, op, arg1):
-        self.codigo += str(self.linha) + ". " + op + " " + arg1 + "\n"
+        self.codigo += str(self.linha) + ". " + op + (f" {arg1}" if arg1 != "" else "") + "\n"
         self.linha += 1
 
     def gera_linha_temp(self):
