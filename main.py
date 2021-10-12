@@ -7,7 +7,6 @@ if __name__ == "__main__":
     arq = "correto2.lalg.txt"
     scan = sintatico.Sintatico(arq)
     scan.analise()
-    scan.compile()
 
     print()
     print(scan.codigo)
