@@ -11,12 +11,12 @@ class Sintatico:
         self.codigo = ""
         self.linha = 0
         self.linha_temp = 0
-        self.i = 0
-        self.C = []
         self.s = -1
-        self.D = []
 
-
+    def compile(self):
+        f = open("compiled_file.txt", "w")
+        f.write(self.codigo)
+        f.close()
 
     def gera_temp(self, tipo):
         temporario = self.temp
@@ -24,7 +24,7 @@ class Sintatico:
         return simbolo.Simbolo("t" + str(temporario), tipo)
 
     def code(self, op, arg1):
-        self.codigo += op + " " + arg1 + "\n"
+        self.codigo += str(self.linha) + ". " + op + " " + arg1 + "\n"
         self.linha += 1
 
     def gera_linha_temp(self):
@@ -38,7 +38,7 @@ class Sintatico:
 
     def obtem_simbolo(self):
         self.simbolo = self.lexico.next_token()
-        if self.simbolo.getTipoName() == "COMMENT":
+        if self.simbolo is not None and self.simbolo.getTipoName() == "COMMENT":
             self.obtem_simbolo()
 
     def verifica_termo(self, termo):
@@ -62,14 +62,14 @@ class Sintatico:
     def programa(self):
         print("programa")
         if self.verifica_termo("program"):
-            self.code("INPP", "")
             self.obtem_simbolo()
+            self.code("INPP", "")
             if self.verifica_tipo('IDENTIFIER'):
                 self.obtem_simbolo()
                 self.corpo()
                 if self.verifica_termo("."):
-                    self.code("PARA", "")
                     self.obtem_simbolo()
+                    self.code("PARA", "")
                 else:
                     raise RuntimeError(f"Erro sintático. esperado '.' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
             else:
@@ -133,7 +133,7 @@ class Sintatico:
                 self.tabela_simbolo[self.simbolo.getTermo()] = simbolo_temp
             else:
                 raise RuntimeError(f"Erro semântico. Identificador '{self.simbolo.getTermo()}' já declarado.")
-            self.code("ALME", variaveis_esq, "", self.simbolo.getTermo())
+            self.code("ALME", "1")
             self.obtem_simbolo()
             self.mais_var(variaveis_esq)
         else:
@@ -174,15 +174,18 @@ class Sintatico:
                 if self.verifica_tipo("IDENTIFIER"):
                     ident = self.simbolo
                     if ident.getTermo() in self.tabela_simbolo.keys():
+                        simbolo_temp = self.tabela_simbolo[ident.getTermo()]
                         self.obtem_simbolo()
                     else:
                         raise RuntimeError(f"Erro semântico. identificador '{self.simbolo.getTermo()}' não declarado")
                     if self.verifica_termo(")"):
                         self.obtem_simbolo()
                         if op == "read":
-                            self.code(op, "", "", ident.getTermo())
+                            self.code("LEIT", "")
+                            self.code("ARMZ", str(simbolo_temp.getEnd_rel()))
                         else:
-                            self.code(op, ident.getTermo(), "", "")
+                            self.code("CRVL", str(simbolo_temp.getEnd_rel()))
+                            self.code("IMPR", "")
                     else:
                         raise RuntimeError(f"Erro sintático. Esperado ')' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
                 else:
@@ -199,11 +202,11 @@ class Sintatico:
             if self.verifica_termo(":="):
                 self.obtem_simbolo()
                 expressao_dir = self.expressao()
-                if ident.getTipo() == expressao_dir.getTipo():
-                    self.code(":=", expressao_dir.getNome(), "", ident.getNome())
-                else:
-                    raise RuntimeError(f"Erro semântico. '{ident.getNome()}' é {ident.getTipo()}" +
-                                       f" e '{expressao_dir.getNome()}' é {expressao_dir.getTipo()}")
+                self.code("ARMZ", str(ident.getEnd_rel()))
+                # if ident.getTipo() == expressao_dir.getTipo():
+                # else:
+                #     raise RuntimeError(f"Erro semântico. '{ident.getNome()}' é {ident.getTipo()}" +
+                #                        f" e '{expressao_dir.getNome()}' é {expressao_dir.getTipo()}")
             else:
                 raise RuntimeError(f"Erro sintático. Esperado ':=' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
         elif self.verifica_termo("if"):
@@ -211,7 +214,7 @@ class Sintatico:
             condicao_dir = self.condicao()
             if self.verifica_termo("then"):
                 self.obtem_simbolo()
-                self.code("JF", condicao_dir.getNome(), self.gera_linha_temp(), "")
+                self.code("DSVF", self.gera_linha_temp())
                 self.comandos()
                 self.pfalsa()
                 if self.verifica_termo("$"):
@@ -222,14 +225,22 @@ class Sintatico:
                 raise RuntimeError(f"Erro sintático. Esperado 'then' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
         elif self.verifica_termo("while"):
             self.obtem_simbolo()
+            linha_temp = self.linha
             condicao_dir = self.condicao()
             if self.verifica_termo("do"):
                 self.obtem_simbolo()
-                self.code("JF", condicao_dir.getNome(), self.gera_linha_temp(), "")
+                self.code("DSVF", self.gera_linha_temp())
                 self.comandos()
-
+                if self.verifica_termo("$"):
+                    self.obtem_simbolo()
+                    self.code("DSVI", str(linha_temp))
+                    self.arruma_linha_temp(self.linha)
+                else:
+                    raise RuntimeError(f"Erro sintático. Esperado '$' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
+            else:
+                raise RuntimeError(f"Erro sintático. Esperado 'do' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
         else:
-            raise RuntimeError(f"Erro sintático. Esperado 'read', 'write', tipo IDENTIFIER ou 'if' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
+            raise RuntimeError(f"Erro sintático. Esperado 'read', 'write', tipo IDENTIFIER, 'if' ou 'while' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
 
     def mais_comandos(self):
         print("mais_comandos")
@@ -255,7 +266,7 @@ class Sintatico:
         fator_dir = self.fator()
         if(minus_op == "-"):
             fator1_dir = self.gera_temp(fator_dir.getTipoName())
-            self.code(minus_op, fator_dir.getNome(), "", fator1_dir.getNome())
+            self.code("INVE", "")
             mais_fatores_dir = self.mais_fatores(fator1_dir)
             return mais_fatores_dir
         else:
@@ -281,9 +292,9 @@ class Sintatico:
         if(self.verifica_tipo("IDENTIFIER")):
             if self.simbolo.getTermo() in self.tabela_simbolo.keys():
                 ident = self.tabela_simbolo[self.simbolo.getTermo()]
-                self.code("CRVL", ident.getEnd_rel())
+                self.code("CRVL", str(ident.getEnd_rel()))
                 self.obtem_simbolo()
-                return self.tabela_simbolo[ident.getTermo()]
+                return ident
             else:
                 raise RuntimeError(f"Erro semântico. identificador '{self.simbolo.getTermo()}' não declarado")
         elif self.verifica_tipo("INT") or self.verifica_tipo("REAL"):
@@ -314,12 +325,16 @@ class Sintatico:
             arithmetic_op = self.op_mul()
             fator_dir = self.fator()
             mais_fatores1_dir = self.mais_fatores(fator_dir)
-            if mais_fatores_esq.getTipo() == mais_fatores1_dir.getTipo():
-                mais_fatores_dir = self.gera_temp(mais_fatores_esq.getTipo())
-            else:
-                raise RuntimeError(f"Erro semântico. '{mais_fatores_esq.getNome()}' é {mais_fatores_esq.getTipo()}" +
-                                   f" e '{mais_fatores1_dir.getNome()}' é {mais_fatores1_dir.getTipo()}")
-            self.code(arithmetic_op, mais_fatores_esq.getNome(), mais_fatores1_dir.getNome(), mais_fatores_dir.getNome())
+            mais_fatores_dir = self.gera_temp(mais_fatores_esq.getTipo())
+            # if mais_fatores_esq.getTipo() == mais_fatores1_dir.getTipo():
+            #   mais_fatores_dir = self.gera_temp(mais_fatores_esq.getTipo())
+            # else:
+            #     raise RuntimeError(f"Erro semântico. '{mais_fatores_esq.getNome()}' é {mais_fatores_esq.getTipo()}" +
+            #                        f" e '{mais_fatores1_dir.getNome()}' é {mais_fatores1_dir.getTipo()}")
+            if arithmetic_op == "*":
+                self.code("MULT", "")
+            elif arithmetic_op == "/":
+                self.code("DIVI", "")
             return mais_fatores_dir
         else:
             return mais_fatores_esq
@@ -343,12 +358,16 @@ class Sintatico:
             arithmetic_op = self.op_ad()
             termo_dir = self.termo()
             outros_termos1_dir = self.outros_termos(termo_dir)
-            if outros_termos_esq.getTipo() == outros_termos1_dir.getTipo():
-                outros_termos_dir = self.gera_temp(outros_termos_esq.getTipo())
-            else:
-                raise RuntimeError(f"Erro semântico. '{outros_termos_esq.getNome()}' é {outros_termos_esq.getTipo()}" +
-                                   f" e '{outros_termos1_dir.getNome()}' é {outros_termos1_dir.getTipo()}")
-            self.code(arithmetic_op, outros_termos_esq.getNome(), outros_termos1_dir.getNome(), outros_termos_dir.getNome())
+            outros_termos_dir = self.gera_temp(outros_termos_esq.getTipo())
+            # if outros_termos_esq.getTipo() == outros_termos1_dir.getTipo():
+            #     outros_termos_dir = self.gera_temp(outros_termos_esq.getTipo())
+            # else:
+            #     raise RuntimeError(f"Erro semântico. '{outros_termos_esq.getNome()}' é {outros_termos_esq.getTipo()}" +
+            #                        f" e '{outros_termos1_dir.getNome()}' é {outros_termos1_dir.getTipo()}")
+            if arithmetic_op == "+":
+                self.code("SOMA", "")
+            elif arithmetic_op == "-":
+                self.code("SUBT", "")
             return outros_termos_dir
         else:
             return outros_termos_esq
@@ -367,12 +386,24 @@ class Sintatico:
         expressao_dir = self.expressao()
         op_relational = self.relacao()
         expressao1_dir = self.expressao()
-        if expressao_dir.getTipo() == expressao1_dir.getTipo():
-            condicao_dir = self.gera_temp(expressao_dir.getTipo())
-        else:
-            raise RuntimeError(f"Erro Semântico. {expressao_dir.getNome()} é {expressao_dir.getTipo()}" +
-                               f" e {expressao1_dir.getNome()} é {expressao1_dir.getTipo()}")
-        self.code(op_relational, expressao_dir.getNome(), expressao1_dir.getNome(), condicao_dir.getNome())
+        condicao_dir = self.gera_temp(expressao_dir.getTipo())
+        # if expressao_dir.getTipo() == expressao1_dir.getTipo():
+        #     condicao_dir = self.gera_temp(expressao_dir.getTipo())
+        # else:
+        #     raise RuntimeError(f"Erro Semântico. {expressao_dir.getNome()} é {expressao_dir.getTipo()}" +
+        #                        f" e {expressao1_dir.getNome()} é {expressao1_dir.getTipo()}")
+        if op_relational == "=":
+            self.code("CPIG", "")
+        elif op_relational == "<>":
+            self.code("CDES", "")
+        elif op_relational == ">=":
+            self.code("CMAI", "")
+        elif op_relational == "<=":
+            self.code("CPMI", "")
+        elif op_relational == ">":
+            self.code("CPMA", "")
+        elif op_relational == "<":
+            self.code("CPME", "")
         return condicao_dir
 
     def relacao(self):
@@ -390,7 +421,7 @@ class Sintatico:
             self.arruma_linha_temp(self.linha)
         elif self.verifica_termo("else"):
             self.arruma_linha_temp(str(self.linha+1))
-            self.code("goto", self.gera_linha_temp(), "", "")
+            self.code("DSVI", self.gera_linha_temp())
             self.obtem_simbolo()
             self.comandos()
             self.arruma_linha_temp(self.linha)
