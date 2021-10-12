@@ -8,12 +8,12 @@ class Sintatico:
         self.tabela_simbolo = {}
         self.tipo = ''
         self.temp = 1
-        self.codigo = "operador;arg1;arg2;result\n"
+        self.codigo = ""
         self.linha = 0
         self.linha_temp = 0
         self.i = 0
         self.C = []
-        self.s = 0
+        self.s = -1
         self.D = []
 
 
@@ -23,8 +23,8 @@ class Sintatico:
         self.temp += 1
         return simbolo.Simbolo("t" + str(temporario), tipo)
 
-    def code(self, op, arg1, arg2, result):
-        self.codigo += str(self.linha) + " - " + op + ";" + arg1 + ";" + arg2 + ";" + result + "\n"
+    def code(self, op, arg1):
+        self.codigo += op + " " + arg1 + "\n"
         self.linha += 1
 
     def gera_linha_temp(self):
@@ -38,6 +38,8 @@ class Sintatico:
 
     def obtem_simbolo(self):
         self.simbolo = self.lexico.next_token()
+        if self.simbolo.getTipoName() == "COMMENT":
+            self.obtem_simbolo()
 
     def verifica_termo(self, termo):
         return (self.simbolo is not None) and (str(self.simbolo.getTermo()) == str(termo))
@@ -60,12 +62,13 @@ class Sintatico:
     def programa(self):
         print("programa")
         if self.verifica_termo("program"):
+            self.code("INPP", "")
             self.obtem_simbolo()
             if self.verifica_tipo('IDENTIFIER'):
                 self.obtem_simbolo()
                 self.corpo()
                 if self.verifica_termo("."):
-                    self.code("PARA", "", "", "")
+                    self.code("PARA", "")
                     self.obtem_simbolo()
                 else:
                     raise RuntimeError(f"Erro sintático. esperado '.' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
@@ -124,7 +127,10 @@ class Sintatico:
         print("variaveis")
         if self.verifica_tipo('IDENTIFIER'):
             if self.verifica_tabela(self.simbolo.getTermo()):
-                self.tabela_simbolo[self.simbolo.getTermo()] = simbolo.Simbolo(self.simbolo.getTermo(), self.tipo)
+                self.s += 1
+                simbolo_temp = simbolo.Simbolo(self.simbolo.getTermo(), self.tipo)
+                simbolo_temp.setEnd_rel(self.s)
+                self.tabela_simbolo[self.simbolo.getTermo()] = simbolo_temp
             else:
                 raise RuntimeError(f"Erro semântico. Identificador '{self.simbolo.getTermo()}' já declarado.")
             self.code("ALME", variaveis_esq, "", self.simbolo.getTermo())
@@ -214,6 +220,14 @@ class Sintatico:
                     raise RuntimeError(f"Erro sintático. Esperado '$' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
             else:
                 raise RuntimeError(f"Erro sintático. Esperado 'then' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
+        elif self.verifica_termo("while"):
+            self.obtem_simbolo()
+            condicao_dir = self.condicao()
+            if self.verifica_termo("do"):
+                self.obtem_simbolo()
+                self.code("JF", condicao_dir.getNome(), self.gera_linha_temp(), "")
+                self.comandos()
+
         else:
             raise RuntimeError(f"Erro sintático. Esperado 'read', 'write', tipo IDENTIFIER ou 'if' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
 
@@ -266,13 +280,15 @@ class Sintatico:
         print("fator")
         if(self.verifica_tipo("IDENTIFIER")):
             if self.simbolo.getTermo() in self.tabela_simbolo.keys():
-                ident = self.simbolo
+                ident = self.tabela_simbolo[self.simbolo.getTermo()]
+                self.code("CRVL", ident.getEnd_rel())
                 self.obtem_simbolo()
                 return self.tabela_simbolo[ident.getTermo()]
             else:
                 raise RuntimeError(f"Erro semântico. identificador '{self.simbolo.getTermo()}' não declarado")
         elif self.verifica_tipo("INT") or self.verifica_tipo("REAL"):
             ident = self.simbolo
+            self.code("CRCT", ident.getTermo())
             self.obtem_simbolo()
             return simbolo.Simbolo(ident.getTermo(), ident.getTipoName())
         elif self.verifica_termo("("):
@@ -380,142 +396,4 @@ class Sintatico:
             self.arruma_linha_temp(self.linha)
         else:
             raise RuntimeError(f"Erro sintático. Esperado 'else' obtido: {self.simbolo.getTermo() if self.simbolo != None else 'NULL'}")
-
-    def CRCT(self, k):
-        self.s += 1
-        self.D[self.s] = k
-
-    def CRVL(self, n):
-        self.s += 1
-        self.D[self.s] = self.D[n]
-
-    def SOMA(self):
-        self.D[self.s-1] += self.D[self.s]
-        self.s -= 1
-
-    def SUBT(self):
-        self.D[self.s-1] -= self.D[self.s]
-        self.s -= 1
-
-    def MULT(self):
-        self.D[self.s-1] = self.D[self.s-1] * self.D[self.s]
-        self.s -= 1
-
-    def DIVI(self):
-        self.D[self.s - 1] = self.D[self.s - 1] / self.D[self.s]
-        self.s -= 1
-
-    def INVE(self):
-        self.D[self.s] = -self.D[self.s]
-
-    def CONJ(self):
-        if self.D[self.s-1] == 1 and self.D[self.s] == 1:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def DISJ(self):
-        if self.D[self.s -1] == 1 or self.D[self.s] == 1:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def NEGA(self):
-        self.D[self.s] = 1 - self.D[self.s]
-
-    def CPME(self):
-        if self.D[self.s-1] < self.D[self.s]:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def CPMA(self):
-        if self.D[self.s-1] < self.D[self.s]:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def CPIG(self):
-        if self.D[self.s-1] == self.D[self.s]:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def CDES(self):
-        if self.D[self.s-1] != self.D[self.s]:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def CPMI(self):
-        if self.D[self.s-1] <= self.D[self.s]:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def CMAI(self):
-        if self.D[self.s-1] >= self.D[self.s]:
-            self.D[self.s-1] = 1
-        else:
-            self.D[self.s-1] = 0
-        self.s -= 1
-
-    def ARMZ(self, n):
-        self.D[n] = self.D[self.s]
-        self.s -= 1
-
-    def DSVI(self, p):
-        self.i = p
-
-    def DSVF(self, p):
-        if self.D[self.s] == 0:
-            self.i = p
-        self.s -= 1             #VERIFICAR SE ESTÁ CERTO
-
-    def LEIT(self):
-        self.s += 1
-        self.D[self.s] = "valor de entrada"
-
-    def IMPR(self):
-        print(self.D[self.s])
-        self.s -= 1
-
-    def ALME(self, m):
-        self.s += m
-
-    def INPP(self):
-        self.s = -1
-
-    def PARA(self):
-        pass
-
-    def PARAM(self, n):
-        self.s += 1
-        self.D[self.s] = self.D[n]
-
-    def PUSHER(self, e):
-        self.s += 1
-        self.D[self.s] = e
-
-    def CHPR(self, p):
-        self.i = p
-
-    def DESM(self, m):
-        self.s -= m
-
-    def RTPR(self):
-        self.i = self.D[self.s]
-        self.s -= 1
-
-
-
-
-
 

@@ -9,7 +9,9 @@ reserved_keys = ["program",
                  "write",
                  "if",
                  "then",
-                 "else"]
+                 "else",
+                 "while",
+                 "do"]
 
 class Type(Enum):
     IDENTIFIER = 0
@@ -18,6 +20,7 @@ class Type(Enum):
     SYMBOL = 3
     RESERVED_KEY = 4
     RELATION = 5
+    COMMENT = 6
 
 class Token:
 

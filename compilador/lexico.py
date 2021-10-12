@@ -76,6 +76,12 @@ class Lexico:
                     elif(char == "="):
                         termo += char
                         return token.Token(token.Type.RELATION, termo)
+                    elif char == "{":
+                        self.estado = 8
+                        termo += char
+                    elif char == "/":
+                        self.estado = 9
+                        termo += char
                     else:
                         termo += char
                         return token.Token(token.Type.SYMBOL, termo)
@@ -143,6 +149,34 @@ class Lexico:
                 else:
                     self.back()
                     return token.Token(token.Type.RELATION, termo)
+            elif self.estado == 8:
+                if char == "}":
+                    termo += char
+                    return token.Token(token.Type.COMMENT, termo)
+                else:
+                    self.estado = 8
+                    termo += char
+            elif self.estado == 9:
+                if char == "*":
+                    self.estado = 10
+                    termo += char
+                else:
+                    self.back()
+                    return token.Token(token.Type.SYMBOL, termo)
+            elif self.estado == 10:
+                if char == "*":
+                    self.estado = 11
+                    termo += char
+                else:
+                    self.estado = 10
+                    termo += char
+            elif self.estado == 11:
+                if char == "/":
+                    termo += char
+                    return token.Token(token.Type.COMMENT, termo)
+                else:
+                    self.estado = 10
+                    termo += char
 
 
 
